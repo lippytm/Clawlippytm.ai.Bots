@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clawlippytm"
+version = "1.0.0"
+description = "AI Toolkit for Clawlippytm repositories"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+keywords = ["ai", "bot", "diagnostics", "cognitive-reasoning", "creativity"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["clawlippytm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
