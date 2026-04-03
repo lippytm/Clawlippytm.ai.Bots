@@ -11,9 +11,12 @@ constituent sub-systems:
 - :class:`~clawlippytm.diagnostics.DiagnosticsSystem` — multi-pass diagnostics
   with iterative feedback loops.
 - :class:`~clawlippytm.cognitive_reasoning.CognitiveReasoner` — chain-of-thought
-  reasoning engine with self-critique.
+  reasoning engine with self-critique and confidence scoring.
 - :class:`~clawlippytm.creativity.CreativityEngine` — temperature-driven response
   enrichment (analogies, metaphors, narrative framing).
+- :class:`~clawlippytm.agents.AgentOrchestrator` — multi-agent coordination for
+  AI Full-Stack / DevOps / Synthetic Intelligence pipelines.
+- :class:`~clawlippytm.devops.DevOpsEngine` — AI-powered CI/CD pipeline engine.
 """
 
 from .bot import BotAttributes, ClawBot
@@ -23,6 +26,19 @@ from .diagnostics import (
     DiagnosticIssue,
     DiagnosticResult,
     DiagnosticsSystem,
+)
+from .agents import (
+    AgentOrchestrator,
+    AgentResult,
+    AgentRole,
+    AgentTask,
+    SyntheticAgent,
+)
+from .devops import (
+    DevOpsEngine,
+    PipelineRun,
+    PipelineStage,
+    StageResult,
 )
 
 __all__ = [
@@ -40,6 +56,17 @@ __all__ = [
     # Creativity
     "CreativityEngine",
     "CreativityAnnotation",
+    # Agents
+    "AgentOrchestrator",
+    "AgentResult",
+    "AgentRole",
+    "AgentTask",
+    "SyntheticAgent",
+    # DevOps
+    "DevOpsEngine",
+    "PipelineRun",
+    "PipelineStage",
+    "StageResult",
 ]
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
