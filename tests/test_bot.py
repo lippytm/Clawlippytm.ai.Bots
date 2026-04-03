@@ -37,6 +37,7 @@ class TestBotAttributes:
             "streaming", "reasoning_depth", "creativity_temperature",
             "self_critique", "safety_filter", "ethical_guidelines",
             "diagnostics_enabled", "feedback_loops",
+            "role", "agent_mode", "max_agents", "devops_environment",
         ]
         d = attrs.to_dict()
         for field in expected_fields:
@@ -110,3 +111,71 @@ class TestClawBot:
         bot = ClawBot(attributes=attrs)
         result = bot.respond("Tell me a story.")
         assert isinstance(result, str)
+
+    def test_agent_mode_creates_orchestrator(self):
+        attrs = BotAttributes(agent_mode=True, max_agents=5)
+        bot = ClawBot(attributes=attrs)
+        assert bot.orchestrator is not None
+
+    def test_no_agent_mode_no_orchestrator(self):
+        bot = ClawBot()
+        assert bot.orchestrator is None
+
+    def test_dispatch_task_requires_agent_mode(self):
+        bot = ClawBot()
+        with pytest.raises(RuntimeError, match="agent_mode"):
+            bot.dispatch_task("Deploy service")
+
+    def test_dispatch_task_returns_result_dict(self):
+        attrs = BotAttributes(agent_mode=True)
+        bot = ClawBot(attributes=attrs)
+        result = bot.dispatch_task("Build the frontend", role="fullstack")
+        assert isinstance(result, dict)
+        assert result["success"] is True
+        assert result["agent_role"] == "fullstack"
+
+    def test_dispatch_task_invalid_role_raises(self):
+        attrs = BotAttributes(agent_mode=True)
+        bot = ClawBot(attributes=attrs)
+        with pytest.raises(ValueError, match="Unknown agent role"):
+            bot.dispatch_task("Something", role="nonexistent_role")
+
+    def test_devops_role_creates_engine(self):
+        attrs = BotAttributes(role="devops")
+        bot = ClawBot(attributes=attrs)
+        assert bot.devops is not None
+
+    def test_general_role_no_devops_engine(self):
+        bot = ClawBot()
+        assert bot.devops is None
+
+    def test_run_pipeline_requires_devops_role(self):
+        bot = ClawBot()
+        with pytest.raises(RuntimeError, match="devops"):
+            bot.run_pipeline()
+
+    def test_run_pipeline_returns_pipeline_run(self):
+        from clawlippytm import PipelineRun
+        attrs = BotAttributes(role="devops", devops_environment="staging")
+        bot = ClawBot(attributes=attrs)
+        run = bot.run_pipeline(branch="main")
+        assert isinstance(run, PipelineRun)
+        assert run.passed
+
+    def test_status_includes_role(self):
+        attrs = BotAttributes(role="devops")
+        bot = ClawBot(attributes=attrs)
+        status = bot.status()
+        assert status["role"] == "devops"
+
+    def test_status_includes_orchestrator_when_agent_mode(self):
+        attrs = BotAttributes(agent_mode=True)
+        bot = ClawBot(attributes=attrs)
+        status = bot.status()
+        assert "orchestrator" in status
+
+    def test_status_includes_devops_when_devops_role(self):
+        attrs = BotAttributes(role="devops")
+        bot = ClawBot(attributes=attrs)
+        status = bot.status()
+        assert "devops" in status
