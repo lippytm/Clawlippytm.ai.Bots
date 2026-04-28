@@ -18,6 +18,8 @@ from typing import Any, Dict, List, Optional
 from .cognitive_reasoning import CognitiveReasoner
 from .creativity import CreativityEngine
 from .diagnostics import DiagnosticsSystem
+from .agents import AgentOrchestrator, AgentRole, AgentTask
+from .devops import DevOpsEngine, PipelineRun
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +72,12 @@ class BotAttributes:
     diagnostics_enabled: bool = True
     feedback_loops: int = 2           # how many diagnostic feedback iterations
 
+    # --- Agent / DevOps ---
+    role: str = "general"             # general | devops | fullstack | synthetic | coordinator
+    agent_mode: bool = False          # enables multi-agent orchestration
+    max_agents: int = 5               # max simultaneous agents in the pool
+    devops_environment: str = "staging"  # default deployment environment
+
     @classmethod
     def defaults(cls) -> "BotAttributes":
         """Return a fully-populated default attribute set."""
@@ -120,6 +128,20 @@ class ClawBot:
             temperature=self.attributes.creativity_temperature,
         )
         self._conversation_history: List[Dict[str, str]] = []
+
+        # --- Optional agent orchestrator ---
+        self.orchestrator: Optional[AgentOrchestrator] = (
+            AgentOrchestrator(max_agents=self.attributes.max_agents)
+            if self.attributes.agent_mode
+            else None
+        )
+
+        # --- Optional DevOps engine (activated when role is "devops") ---
+        self.devops: Optional[DevOpsEngine] = (
+            DevOpsEngine(environment=self.attributes.devops_environment)
+            if self.attributes.role == "devops"
+            else None
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -192,14 +214,90 @@ class ClawBot:
 
     def status(self) -> Dict[str, Any]:
         """Return a snapshot of the bot's current operational status."""
-        return {
+        info: Dict[str, Any] = {
             "name": self.attributes.name,
             "version": self.attributes.version,
+            "role": self.attributes.role,
             "conversation_turns": len(self._conversation_history),
             "diagnostics": self.diagnostics.summary(),
             "reasoning": self.reasoner.summary(),
             "creativity": self.creativity.summary(),
         }
+        if self.orchestrator is not None:
+            info["orchestrator"] = self.orchestrator.summary()
+        if self.devops is not None:
+            info["devops"] = self.devops.summary()
+        return info
+
+    def run_pipeline(self, branch: str = "main") -> PipelineRun:
+        """
+        Run the CI/CD pipeline for *branch*.
+
+        Requires the bot to be configured with ``role="devops"``.
+
+        Parameters
+        ----------
+        branch:
+            The source branch to build and deploy.
+
+        Returns
+        -------
+        PipelineRun
+            Complete pipeline run record.
+
+        Raises
+        ------
+        RuntimeError
+            When the bot is not configured as a DevOps bot.
+        """
+        if self.devops is None:
+            raise RuntimeError(
+                "run_pipeline() requires the bot to be created with role='devops'. "
+                "Set BotAttributes(role='devops') to enable the DevOps engine."
+            )
+        return self.devops.run_pipeline(branch=branch)
+
+    def dispatch_task(self, description: str, role: str = "general") -> Dict[str, Any]:
+        """
+        Dispatch a task to the multi-agent orchestrator.
+
+        Requires the bot to be configured with ``agent_mode=True``.
+
+        Parameters
+        ----------
+        description:
+            Human-readable description of the task.
+        role:
+            Target agent role (``"general"``, ``"devops"``, ``"fullstack"``,
+            ``"synthetic"``, or ``"coordinator"``).
+
+        Returns
+        -------
+        dict
+            Serialised :class:`~clawlippytm.agents.AgentResult`.
+
+        Raises
+        ------
+        RuntimeError
+            When the bot is not configured with ``agent_mode=True``.
+        ValueError
+            When *role* is not a recognised :class:`~clawlippytm.agents.AgentRole`.
+        """
+        if self.orchestrator is None:
+            raise RuntimeError(
+                "dispatch_task() requires the bot to be created with agent_mode=True. "
+                "Set BotAttributes(agent_mode=True) to enable the agent orchestrator."
+            )
+        try:
+            agent_role = AgentRole(role)
+        except ValueError:
+            valid = [r.value for r in AgentRole]
+            raise ValueError(
+                f"Unknown agent role '{role}'. Valid roles: {valid}"
+            )
+        task = AgentTask(description=description, role=agent_role)
+        result = self.orchestrator.dispatch(task)
+        return result.to_dict()
 
     # ------------------------------------------------------------------
     # Internal helpers
