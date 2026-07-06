@@ -4,12 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clawlippytm"
-version = "1.0.0"
-description = "AI Toolkit for Clawlippytm repositories"
+version = "1.1.0"
+description = "AI Toolkit for Clawlippytm repositories — Full-Stack AI, DevOps, Multi-Agent & Synthetic Intelligence Engines"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-keywords = ["ai", "bot", "diagnostics", "cognitive-reasoning", "creativity"]
+keywords = [
+    "ai", "bot", "diagnostics", "cognitive-reasoning", "creativity",
+    "devops", "multi-agent", "synthetic-intelligence", "fullstack", "pipeline",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",

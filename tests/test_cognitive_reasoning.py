@@ -106,3 +106,46 @@ class TestCognitiveReasoner:
         output = reasoner.reason("What did we discuss?", history=history)
         # The synthesise method notes how many prior turns were used.
         assert "prior conversation" in output.response or str(len(history)) in output.response
+
+    def test_reasoning_step_has_confidence(self):
+        reasoner = CognitiveReasoner(depth=2, self_critique=False)
+        output = reasoner.reason("What is deep learning?")
+        for step in output.trace:
+            assert 0.0 <= step.confidence <= 1.0
+
+    def test_confidence_decreases_with_depth(self):
+        reasoner = CognitiveReasoner(depth=3, self_critique=False)
+        output = reasoner.reason("How does neural network training work?")
+        # Top-level steps (depth=1) should have higher confidence than sub-steps (depth=2+)
+        top_level_conf = [s.confidence for s in output.trace]
+        sub_step_conf = [
+            sub.confidence
+            for step in output.trace
+            for sub in step.sub_steps
+        ]
+        assert top_level_conf, "Expected at least one top-level reasoning step"
+        assert sub_step_conf, "Expected at least one sub-step (depth >= 2 required)"
+        assert min(top_level_conf) >= min(sub_step_conf)
+
+    def test_average_confidence_in_output(self):
+        reasoner = CognitiveReasoner(depth=2, self_critique=False)
+        output = reasoner.reason("Why is diversity important?")
+        assert 0.0 <= output.average_confidence <= 1.0
+
+    def test_average_confidence_zero_when_no_trace(self):
+        output = ReasoningOutput(prompt="p", response="r", trace=[])
+        assert output.average_confidence == 0.0
+
+    def test_step_confidence_in_to_dict(self):
+        reasoner = CognitiveReasoner(depth=1, self_critique=False)
+        output = reasoner.reason("Define machine learning.")
+        for step in output.trace:
+            d = step.to_dict()
+            assert "confidence" in d
+            assert isinstance(d["confidence"], float)
+
+    def test_output_to_dict_includes_average_confidence(self):
+        reasoner = CognitiveReasoner(depth=1, self_critique=False)
+        output = reasoner.reason("Explain AI.")
+        d = output.to_dict()
+        assert "average_confidence" in d

@@ -32,12 +32,14 @@ class ReasoningStep:
     question: str
     answer: str
     sub_steps: List["ReasoningStep"] = field(default_factory=list)
+    confidence: float = 1.0     # 0.0 (uncertain) – 1.0 (certain)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "depth": self.depth,
             "question": self.question,
             "answer": self.answer,
+            "confidence": round(self.confidence, 3),
             "sub_steps": [s.to_dict() for s in self.sub_steps],
         }
 
@@ -52,12 +54,20 @@ class ReasoningOutput:
     self_critique: Optional[str] = None
     refined: bool = False
 
+    @property
+    def average_confidence(self) -> float:
+        """Mean confidence across all top-level reasoning steps."""
+        if not self.trace:
+            return 0.0
+        return round(sum(s.confidence for s in self.trace) / len(self.trace), 3)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "prompt": self.prompt,
             "response": self.response,
             "refined": self.refined,
             "self_critique": self.self_critique,
+            "average_confidence": self.average_confidence,
             "trace": [s.to_dict() for s in self.trace],
         }
 
@@ -213,7 +223,7 @@ class CognitiveReasoner:
         a structured placeholder answer that conveys the chain-of-thought
         intent clearly.
         """
-        answer = self._generate_answer(question, current_depth)
+        answer, confidence = self._generate_answer(question, current_depth)
         sub_steps: List[ReasoningStep] = []
 
         if current_depth < self.depth:
@@ -227,14 +237,24 @@ class CognitiveReasoner:
             question=question,
             answer=answer,
             sub_steps=sub_steps,
+            confidence=confidence,
         )
 
-    def _generate_answer(self, question: str, depth: int) -> str:
+    def _generate_answer(self, question: str, depth: int) -> tuple[str, float]:
         """
         Generate a heuristic answer for *question* at the given *depth*.
 
         Deeper levels produce more detailed / specific answers, simulating
         the progressive refinement of chain-of-thought reasoning.
+
+        Returns
+        -------
+        tuple[str, float]
+            The answer text and a confidence score in [0.1, 1.0].
+            Confidence is computed as ``max(0.1, 1.0 - (depth - 1) * 0.15)``,
+            so depth 1 → 1.0, depth 2 → 0.85, depth 3 → 0.7, depth 4 → 0.55,
+            depth 5 → 0.4.  The floor of 0.1 prevents confidence from reaching
+            zero for arbitrarily deep steps.
         """
         detail_levels = [
             "At a high level: ",
@@ -252,11 +272,14 @@ class CognitiveReasoner:
              "would", "could", "should", "their", "there", "about", "which"}
         ]
         keyword_str = ", ".join(keywords[:5]) if keywords else question.strip("?")
-        return (
+        answer = (
             f"{prefix}considering '{keyword_str}', the reasoning at depth {depth} "
             f"indicates a nuanced understanding that spans multiple perspectives "
             f"and integrates prior context."
         )
+        # Confidence decreases with depth (shallow reasoning is more certain)
+        confidence = max(0.1, round(1.0 - (depth - 1) * 0.15, 3))
+        return answer, confidence
 
     def _follow_up_questions(self, question: str, answer: str) -> List[str]:
         """Generate follow-up sub-questions from a question/answer pair."""
